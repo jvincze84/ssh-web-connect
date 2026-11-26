@@ -1,0 +1,24 @@
+services:
+  ssh-manager:
+    build: .
+    image: ssh-manager:latest
+    container_name: ssh-manager
+    restart: unless-stopped
+    # Bind to localhost only; the OAuth proxy is the only intended entry point.
+    ports:
+      - 8181:8080
+    environment:
+      LOG_LEVEL: INFO
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/var/log/ssh-manager
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    user: "10001:10001"

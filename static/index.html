@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>SSH Manager</title>
+  <link rel="stylesheet" href="/assets/vendor/xterm.css">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SSH Manager</div>
+    <nav id="tabs" class="tabs" role="tablist" aria-label="Sessions"></nav>
+    <button id="new-tab" class="btn btn-primary" type="button" title="New connection">+ New</button>
+    <button id="dup-tab" class="btn" type="button" title="Duplicate the active session (Ctrl+Shift+D)" disabled>&#x29c9; Duplicate</button>
+    <button id="open-settings" class="btn" type="button" title="Settings" aria-label="Settings">&#x2699;</button>
+    <div id="current-user" class="current-user" title="Logged in user"></div>
+  </header>
+
+  <main id="terminals" class="terminals">
+    <div id="empty-state" class="empty-state">
+      <p>No open sessions.</p>
+      <p><button id="empty-new" class="btn btn-primary" type="button">Open a connection</button></p>
+      <p class="hint">Select text to copy it. Right-click inside a terminal to paste.</p>
+    </div>
+  </main>
+
+  <dialog id="connect-dialog" class="dialog">
+    <form id="connect-form" method="dialog" autocomplete="off">
+      <h2 id="dialog-title">New SSH connection</h2>
+
+      <label for="host-filter">Host</label>
+      <input id="host-filter" type="search" placeholder="Filter hosts..." spellcheck="false">
+      <select id="host-select" size="8" required></select>
+      <div id="host-details" class="host-details"></div>
+
+      <label for="user-select">User</label>
+      <select id="user-select" required></select>
+
+      <label for="key-input">Private key (base64)</label>
+      <textarea id="key-input" rows="5" spellcheck="false" autocomplete="off"
+                autocapitalize="off" autocorrect="off"
+                placeholder="Output of: base64 -w0 ~/.ssh/id_ed25519"></textarea>
+      <div class="key-row">
+        <input id="key-file" type="file" class="visually-hidden">
+        <button id="key-file-btn" class="btn btn-small" type="button">Load key file...</button>
+        <label class="checkbox">
+          <input id="remember-key" type="checkbox">
+          Keep key in this tab's memory until reload
+        </label>
+      </div>
+
+      <label for="passphrase-input">Key passphrase (optional)</label>
+      <input id="passphrase-input" type="password" autocomplete="off">
+
+      <div id="connect-error" class="form-error" role="alert"></div>
+
+      <div class="dialog-actions">
+        <button id="connect-cancel" class="btn" type="button">Cancel</button>
+        <button id="connect-submit" class="btn btn-primary" type="submit">Connect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="dialog">
+    <form id="settings-form" method="dialog" autocomplete="off">
+      <h2>Settings</h2>
+      <label for="scrollback-input">Scrollback lines</label>
+      <input id="scrollback-input" type="number" min="100" step="100" required>
+      <div id="scrollback-hint" class="host-details"></div>
+      <label for="fontsize-input">Font size (px)</label>
+      <input id="fontsize-input" type="number" min="8" max="32" step="1" required>
+      <div id="settings-error" class="form-error" role="alert"></div>
+      <div class="dialog-actions">
+        <button id="settings-reset" class="btn" type="button">Use default</button>
+        <button id="settings-cancel" class="btn" type="button">Cancel</button>
+        <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/assets/vendor/xterm.js"></script>
+  <script src="/assets/vendor/addon-fit.js"></script>
+  <script src="/assets/vendor/addon-web-links.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

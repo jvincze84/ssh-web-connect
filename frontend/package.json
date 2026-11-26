@@ -1,0 +1,10 @@
+{
+  "name": "ssh-manager-frontend-vendor",
+  "private": true,
+  "description": "Pinned front-end dependencies, copied into static/assets/vendor at image build time.",
+  "dependencies": {
+    "@xterm/xterm": "6.0.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-web-links": "0.12.0"
+  }
+}

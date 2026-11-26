@@ -1,0 +1,68 @@
+# SSH Manager configuration.
+# Copy to config/config.yaml and adjust. Unknown keys are rejected at startup.
+
+server:
+  # Header set by the OAuth proxy that carries the authenticated user identity.
+  # oauth2-proxy: X-Forwarded-Email / X-Forwarded-User (with --pass-user-headers)
+  #               or X-Auth-Request-Email (with --set-xauthrequest, nginx auth_request)
+  user_header: X-Forwarded-Email
+  # Reject every request without the header above. Set to false only for local testing.
+  require_user_header: true
+  # Only these peers may connect (IP or CIDR). Put the proxy's address/network here.
+  # Empty list = accept any peer (then the app MUST NOT be reachable except via the proxy).
+  # X-Forwarded-For is only honoured for the audit log when this list is non-empty.
+  trusted_proxies: []
+  #  - 172.16.0.0/12
+  # Allowed browser origins for the WebSocket. Empty = Origin must match the Host header.
+  allowed_origins: []
+  #  - https://ssh.example.com
+  # Close sessions without any traffic after N seconds (0 = disabled).
+  idle_timeout: 1800
+  # Concurrent SSH sessions per user (0 = unlimited).
+  max_sessions_per_user: 10
+
+ssh:
+  # OpenSSH known_hosts file used to verify server host keys (strict checking).
+  # Generate with: ssh-keyscan -p 22 host1 host2 > config/known_hosts
+  known_hosts: /app/config/known_hosts
+  connect_timeout: 15
+  keepalive_interval: 30
+  term_type: xterm-256color
+
+audit:
+  # JSON-lines audit log; null disables the file sink.
+  file: /var/log/ssh-manager/audit.log
+  # Also print audit events to stdout (docker logs).
+  stdout: true
+  max_bytes: 10485760
+  backup_count: 10
+
+# Hosts are organised in groups. The group is the top level; hosts are listed under it.
+# Group names are shown as sections in the host picker (in config order).
+groups:
+  - name: Production
+    hosts:
+      - id: web01                   # unique across ALL groups, [A-Za-z0-9_.-]
+        name: Web server 01         # display name (optional, defaults to id)
+        hostname: 172.16.0.66
+        port: 22
+        users: [vinyo, ubuntu]     # users the operator may log in as
+        description: Public nginx frontend
+
+      - id: db01
+        name: Database 01
+        hostname: db01.internal.example.com
+        users: [postgres]
+
+  - name: Lab
+    hosts:
+      - id: lab
+        hostname: 192.168.1.50
+        port: 2222
+        users: [root]
+        # Per-host idle timeout (seconds, 0 = never). Overrides server.idle_timeout.
+        # idle_timeout: 7200
+        # Per-host known_hosts override:
+        # known_hosts: /app/config/known_hosts.lab
+        # DANGEROUS - disables host key verification (MITM possible). Avoid.
+        # insecure_skip_host_key_check: true
