@@ -629,7 +629,11 @@
       if (ev.key === "ArrowDown") { ev.preventDefault(); $("host-select").focus(); }
     });
     $("host-select").addEventListener("change", renderUserOptions);
-    $("host-select").addEventListener("dblclick", () => $("key-input").focus());
+    $("host-select").addEventListener("dblclick", () => {
+      // Key already filled in: connect right away; otherwise jump to the key field.
+      if ($("key-input").value.trim() && $("host-select").value) $("connect-form").requestSubmit();
+      else $("key-input").focus();
+    });
     $("key-file-btn").addEventListener("click", () => $("key-file").click());
     $("key-file").addEventListener("change", loadKeyFile);
     $("remember-key").addEventListener("change", (ev) => {
