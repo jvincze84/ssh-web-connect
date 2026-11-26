@@ -189,6 +189,36 @@
       const tab = el("div", { class: "tab", role: "tab", tabindex: "0" }, dot, label, redo, close);
       redo.addEventListener("click", (ev) => { ev.stopPropagation(); activate(this.id); this.reconnect(); });
       this.redoEl = redo;
+      // Drag & drop reordering.
+      tab.draggable = true;
+      tab.addEventListener("dragstart", (ev) => {
+        dragTabId = this.id;
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", ""); // required by Firefox
+        tab.classList.add("dragging");
+      });
+      tab.addEventListener("dragend", () => {
+        dragTabId = null;
+        clearDropMarks();
+        tab.classList.remove("dragging");
+      });
+      tab.addEventListener("dragover", (ev) => {
+        if (dragTabId === null || dragTabId === this.id) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+        clearDropMarks();
+        tab.classList.add(dropAfter(ev, tab) ? "drop-after" : "drop-before");
+      });
+      tab.addEventListener("dragleave", () => tab.classList.remove("drop-before", "drop-after"));
+      tab.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        const src = state.tabs.get(dragTabId);
+        const after = dropAfter(ev, tab);
+        clearDropMarks();
+        if (!src || src === this) return;
+        if (after) tab.after(src.tabEl); else tab.before(src.tabEl);
+        syncTabOrder();
+      });
       tab.addEventListener("click", (ev) => {
         if (ev.target === close) return;
         activate(this.id);
@@ -259,8 +289,18 @@
     }
 
     doFit() {
-      if (!this.container.classList.contains("active")) return;
-      try { this.fit.fit(); } catch (e) { /* not visible yet */ }
+      // Coalesce bursts (e.g. entering fullscreen) into one fit per frame.
+      if (this.fitRaf) return;
+      this.fitRaf = requestAnimationFrame(() => {
+        this.fitRaf = 0;
+        if (!this.container.classList.contains("active")) return;
+        try {
+          const dims = this.fit.proposeDimensions();
+          if (!dims || !Number.isFinite(dims.cols) || !Number.isFinite(dims.rows)) return;
+          if (dims.cols === this.term.cols && dims.rows === this.term.rows) return;
+          this.fit.fit();
+        } catch (e) { /* not visible yet */ }
+      });
     }
 
     send(obj) {
@@ -347,6 +387,7 @@
     destroy() {
       try { if (this.ws) this.ws.close(); } catch (e) { /* ignore */ }
       this.resizeObserver.disconnect();
+      if (this.fitRaf) cancelAnimationFrame(this.fitRaf);
       this.term.dispose();
       this.container.remove();
       this.tabEl.remove();
@@ -393,6 +434,26 @@
       return;
     }
     openConnectDialog({ host: src.host, username: src.username, focusKey: true });
+  }
+
+  let dragTabId = null;
+
+  function dropAfter(ev, tab) {
+    const r = tab.getBoundingClientRect();
+    return ev.clientX > r.left + r.width / 2;
+  }
+
+  function clearDropMarks() {
+    for (const t of $("tabs").children) t.classList.remove("drop-before", "drop-after");
+  }
+
+  // Keep state.tabs iteration order in line with the DOM order of the tab strip.
+  function syncTabOrder() {
+    const sessions = [...state.tabs.values()];
+    const order = [...$("tabs").children];
+    sessions.sort((a, b) => order.indexOf(a.tabEl) - order.indexOf(b.tabEl));
+    state.tabs.clear();
+    for (const s of sessions) state.tabs.set(s.id, s);
   }
 
   function closeSession(id) {
@@ -629,7 +690,11 @@
       if (ev.key === "ArrowDown") { ev.preventDefault(); $("host-select").focus(); }
     });
     $("host-select").addEventListener("change", renderUserOptions);
-    $("host-select").addEventListener("dblclick", () => $("key-input").focus());
+    $("host-select").addEventListener("dblclick", () => {
+      // Key already filled in: connect right away; otherwise jump to the key field.
+      if ($("key-input").value.trim() && $("host-select").value) $("connect-form").requestSubmit();
+      else $("key-input").focus();
+    });
     $("key-file-btn").addEventListener("click", () => $("key-file").click());
     $("key-file").addEventListener("change", loadKeyFile);
     $("remember-key").addEventListener("change", (ev) => {
