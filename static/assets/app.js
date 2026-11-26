@@ -138,8 +138,7 @@
       $("paste-cancel").addEventListener("click", onCancel);
       dlg.addEventListener("close", onClose);
       dlg.showModal();
-      ta.focus();
-      ta.setSelectionRange(0, 0);
+      $("paste-submit").focus(); // Enter confirms right away
     });
   }
 
