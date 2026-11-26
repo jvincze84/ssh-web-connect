@@ -195,6 +195,15 @@ groups:
   scrollback in the settings dialog (gear icon), kept in `localStorage`. No config key.
 - Group-level defaults (e.g. shared `users` or `known_hosts`) are not implemented.
 
+## Follow-up: UI polish (implemented)
+
+- **Double-click to connect**: double-click on a host in the connect dialog submits the form
+  when the key field is filled; otherwise it focuses the key field.
+- **Fullscreen jitter fix**: `doFit()` runs once per animation frame and only when the
+  proposed cols/rows differ; `.terminals`/`.terminal-pane` use `overflow: hidden`.
+- **Draggable tabs**: tabs can be reordered with drag & drop (drop marker on the left/right
+  half of the target tab). Not persisted across reloads. Not yet verified in a real browser.
+
 ## Cross-cutting
 
 - **Protocol additions** (update CLAUDE.md "WebSocket protocol"):

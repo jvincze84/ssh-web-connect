@@ -61,6 +61,13 @@ again.
 **Duplicate** (top bar or `Ctrl+Shift+D`) opens a new tab for the active tab's host and
 user, with the same key rules.
 
+### Connecting and tab handling
+
+- Double-clicking a host in the **New connection** dialog connects immediately if a key is
+  already filled in (and a user is selected); with an empty key it just focuses the key field.
+- Tabs can be reordered by dragging one onto another (a blue marker shows the drop side).
+  The order is kept only until the page is reloaded.
+
 ### Clipboard
 
 | Action | Effect |
