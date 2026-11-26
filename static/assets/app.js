@@ -259,8 +259,18 @@
     }
 
     doFit() {
-      if (!this.container.classList.contains("active")) return;
-      try { this.fit.fit(); } catch (e) { /* not visible yet */ }
+      // Coalesce bursts (e.g. entering fullscreen) into one fit per frame.
+      if (this.fitRaf) return;
+      this.fitRaf = requestAnimationFrame(() => {
+        this.fitRaf = 0;
+        if (!this.container.classList.contains("active")) return;
+        try {
+          const dims = this.fit.proposeDimensions();
+          if (!dims || !Number.isFinite(dims.cols) || !Number.isFinite(dims.rows)) return;
+          if (dims.cols === this.term.cols && dims.rows === this.term.rows) return;
+          this.fit.fit();
+        } catch (e) { /* not visible yet */ }
+      });
     }
 
     send(obj) {
@@ -347,6 +357,7 @@
     destroy() {
       try { if (this.ws) this.ws.close(); } catch (e) { /* ignore */ }
       this.resizeObserver.disconnect();
+      if (this.fitRaf) cancelAnimationFrame(this.fitRaf);
       this.term.dispose();
       this.container.remove();
       this.tabEl.remove();

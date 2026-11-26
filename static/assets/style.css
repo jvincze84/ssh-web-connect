@@ -101,12 +101,13 @@ body { display: flex; flex-direction: column; }
 
 .current-user { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
-.terminals { position: relative; flex: 1; min-height: 0; }
+.terminals { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
 .terminal-pane {
   position: absolute;
   inset: 0;
   padding: 4px 0 0 6px;
+  overflow: hidden;
   visibility: hidden;
 }
 .terminal-pane.active { visibility: visible; }
