@@ -33,6 +33,12 @@ The UI, logs, code comments and docs are all **in English**.
 - `tests/test_app.py`: unit tests and an end-to-end test using an in-process asyncssh
   server.
 
+## Paste confirmation
+
+Multi-line paste (right-click, Ctrl+V, middle click) goes through `Session.requestPaste()`,
+which shows the editable `#paste-dialog`; only then is `term.paste()` called. Keep every
+paste path routed through it. Pasted text is never logged or stored.
+
 ## WebSocket protocol (`/ws/ssh`)
 
 Client → server, JSON text frames:

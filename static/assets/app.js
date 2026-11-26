@@ -111,6 +111,38 @@
     return btoa(bin);
   }
 
+  // Shows the editable multi-line paste confirmation. Resolves with the (edited)
+  // text, or null when cancelled/emptied. Only one dialog at a time.
+  let pasteBusy = false;
+  function confirmPaste(text, lineCount) {
+    return new Promise((resolve) => {
+      if (pasteBusy) { resolve(null); return; }
+      pasteBusy = true;
+      const dlg = $("paste-dialog");
+      const ta = $("paste-text");
+      ta.value = text;
+      $("paste-hint").textContent =
+        lineCount + " lines will be sent to the terminal. Review or edit before pasting.";
+      let result = null;
+      const onSubmit = (ev) => { ev.preventDefault(); result = ta.value || null; dlg.close(); };
+      const onCancel = () => dlg.close();
+      const onClose = () => {
+        $("paste-form").removeEventListener("submit", onSubmit);
+        $("paste-cancel").removeEventListener("click", onCancel);
+        dlg.removeEventListener("close", onClose);
+        ta.value = "";
+        pasteBusy = false;
+        resolve(result);
+      };
+      $("paste-form").addEventListener("submit", onSubmit);
+      $("paste-cancel").addEventListener("click", onCancel);
+      dlg.addEventListener("close", onClose);
+      dlg.showModal();
+      ta.focus();
+      ta.setSelectionRange(0, 0);
+    });
+  }
+
   // ---------------------------------------------------------------- session
   class Session {
     constructor(host, username) {
@@ -155,11 +187,17 @@
       this.container.addEventListener("contextmenu", async (ev) => {
         ev.preventDefault();
         const text = await readClipboard();
-        if (text) {
-          this.term.paste(text); // honours bracketed paste mode -> onData
-          this.term.focus();
-        }
+        if (text) this.requestPaste(text);
       });
+
+      // Ctrl+V / Shift+Insert / middle click: native paste event (capture phase,
+      // before xterm.js handles it).
+      this.container.addEventListener("paste", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const text = ev.clipboardData && ev.clipboardData.getData("text/plain");
+        if (text) this.requestPaste(text);
+      }, true);
 
       this.term.onData((data) => this.send({ type: "input", data }));
       this.term.onResize(({ cols, rows }) => this.send({ type: "resize", cols, rows }));
@@ -175,6 +213,20 @@
 
       this.tabEl = this.buildTab();
       $("tabs").append(this.tabEl);
+    }
+
+    // Multi-line pastes need confirmation (editable); single lines go straight in.
+    requestPaste(text) {
+      const lines = text.replace(/(\r?\n|\r)+$/, "").split(/\r\n|\r|\n/);
+      if (lines.length < 2) {
+        this.term.paste(text); // honours bracketed paste mode -> onData
+        this.term.focus();
+        return;
+      }
+      confirmPaste(text, lines.length).then((edited) => {
+        if (edited) this.term.paste(edited);
+        this.term.focus();
+      });
     }
 
     get title() {

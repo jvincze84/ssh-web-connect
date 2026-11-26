@@ -81,6 +81,19 @@
     </form>
   </dialog>
 
+  <dialog id="paste-dialog" class="dialog">
+    <form id="paste-form" method="dialog" autocomplete="off">
+      <h2>Paste multiple lines?</h2>
+      <div id="paste-hint" class="host-details"></div>
+      <label for="paste-text">Text to paste (editable)</label>
+      <textarea id="paste-text" rows="10" spellcheck="false" wrap="off"></textarea>
+      <div class="dialog-actions">
+        <button id="paste-cancel" class="btn" type="button">Cancel</button>
+        <button id="paste-submit" class="btn btn-primary" type="submit">Paste</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="/assets/vendor/xterm.js"></script>

@@ -226,3 +226,6 @@ body { display: flex; flex-direction: column; }
 }
 .session-overlay[hidden] { display: none; }
 .overlay-msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+#paste-dialog { width: min(720px, 95vw); }
+#paste-text { white-space: pre; word-break: normal; min-height: 160px; }
