@@ -47,6 +47,16 @@ Server → client: **binary** frames carry raw terminal output. JSON text frames
 (`{"type":"idle_warning","seconds_left":N}`) and `pong`. Never put `error_detail` in a
 browser message.
 
+## Front end behaviour notes
+
+- `Session.doFit()` is coalesced with `requestAnimationFrame` and skips `fit()` when the
+  proposed cols/rows equal the current ones. Do not call `fit.fit()` directly from a
+  `ResizeObserver`: in fullscreen it caused jitter and resize-message floods.
+- Tab reordering uses HTML5 drag & drop on `.tab` elements; `syncTabOrder()` keeps
+  `state.tabs` (a Map) in the same order as the DOM. Order is not persisted.
+- Double-clicking a host in the connect dialog submits the form when the key is filled
+  (`requestSubmit()`, so `submitDialog` validation still applies).
+
 ## Commands
 
 No local venv (python3-venv is not installed on the dev host). Use Docker:
