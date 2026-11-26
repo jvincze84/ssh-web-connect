@@ -15,7 +15,7 @@ jobs:
   docker:
     uses: jvincze84/reusable-workflows/.github/workflows/docker-build.yml@main
     with:
-      image-name: pdf-manager
+      image-name: ssh-web-connect
       dockerhub-readme: true
     secrets:
       REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
