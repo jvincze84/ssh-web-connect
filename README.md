@@ -7,7 +7,7 @@ behind an OAuth proxy (e.g. oauth2-proxy).
 - **Key-only auth**: the private key is pasted (base64) at connect time, used once for
   the handshake and never stored on the server.
 - **Tabs**: several concurrent SSH sessions in one browser tab.
-- **Clipboard**: selected text is copied automatically, right-click pastes.
+- **Clipboard**: selected text is copied automatically, right-click pastes. Pasting more than one line opens an editable confirmation box first.
 - **Audit log**: JSON-lines log of every connect, failure and disconnect, including the
   proxy-supplied user identity and the key fingerprint.
 - **Strict host key checking** against a `known_hosts` file.
