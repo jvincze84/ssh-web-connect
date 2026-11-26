@@ -6,6 +6,7 @@ import asyncio
 import ipaddress
 import logging
 import os
+import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,6 +28,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 log = logging.getLogger("ssh_manager")
+
+HEALTH_TIMEOUT = 3.0  # seconds, TCP connect probe for the new-connection dialog
 
 STATIC_DIR = Path(os.environ.get("SSH_MANAGER_STATIC", Path(__file__).parent.parent / "static"))
 
@@ -229,6 +232,26 @@ def create_app(cfg: Optional[AppConfig] = None) -> FastAPI:
                 for h in c.hosts
             ],
         }
+
+    @app.get("/api/hosts/{host_id}/health")
+    async def host_health(host_id: str, request: Request):
+        """Cheap TCP reachability probe of a configured host (advisory only)."""
+        c: AppConfig = request.app.state.config
+        host = next((h for h in c.hosts if h.id == host_id), None)
+        if host is None:
+            raise HTTPException(status_code=404, detail="Unknown host")
+        start = time.monotonic()
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(host.hostname, host.port), timeout=HEALTH_TIMEOUT)
+        except (OSError, asyncio.TimeoutError):
+            return {"reachable": False, "latency_ms": None}
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except OSError:
+            pass
+        return {"reachable": True, "latency_ms": round((time.monotonic() - start) * 1000)}
 
     @app.get("/", include_in_schema=False)
     async def index():

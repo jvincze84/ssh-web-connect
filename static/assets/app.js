@@ -439,11 +439,36 @@
     return state.hosts.find((h) => h.id === $("host-select").value) || null;
   }
 
+  // Advisory reachability probe; never blocks connecting.
+  let healthSeq = 0;
+  async function checkHealth(host) {
+    const box = $("host-health");
+    const seq = ++healthSeq;
+    box.className = "host-health";
+    if (!host) { box.textContent = ""; return; }
+    box.textContent = "Checking reachability...";
+    let msg, cls;
+    try {
+      const res = await fetch(`/api/hosts/${encodeURIComponent(host.id)}/health`,
+        { credentials: "same-origin", cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      const j = await res.json();
+      if (j.reachable) { cls = "up"; msg = `Reachable (${j.latency_ms} ms)`; }
+      else { cls = "down"; msg = "Unreachable (you can still try to connect)"; }
+    } catch (_) {
+      cls = ""; msg = "Reachability unknown";
+    }
+    if (seq !== healthSeq) return;  // a newer selection superseded this one
+    box.className = "host-health" + (cls ? " " + cls : "");
+    box.textContent = msg;
+  }
+
   function renderUserOptions() {
     const host = selectedHost();
     const sel = $("user-select");
     sel.replaceChildren();
     $("host-details").textContent = host ? (host.description || "") : "";
+    checkHealth(host);
     if (!host) return;
     for (const u of host.users) sel.append(el("option", { value: u, text: u }));
   }

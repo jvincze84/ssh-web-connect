@@ -14,14 +14,14 @@ from app.keys import KeyError_, decode_private_key
 from app.main import AccessDenied, check_origin, create_app, resolve_identity
 
 
-def make_cfg(tmp_path: Path, **server) -> AppConfig:
+def make_cfg(tmp_path: Path, port: int = 22, **server) -> AppConfig:
     kh = tmp_path / "known_hosts"
     kh.write_text("")
     return AppConfig.model_validate({
         "server": {"require_user_header": True, **server},
         "ssh": {"known_hosts": str(kh)},
         "audit": {"file": str(tmp_path / "audit.log"), "stdout": False},
-        "groups": [{"name": "G", "hosts": [{"id": "h1", "hostname": "127.0.0.1", "users": ["alice"]}]}],
+        "groups": [{"name": "G", "hosts": [{"id": "h1", "hostname": "127.0.0.1", "port": port, "users": ["alice"]}]}],
     })
 
 
@@ -222,6 +222,22 @@ def test_http_requires_identity_and_sets_headers(tmp_path):
         assert r.json()["ui"] == {"scrollback": 10000, "scrollback_max": 100000}
         assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
         assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_host_health(tmp_path):
+    import socket
+    srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1)
+    port = srv.getsockname()[1]
+    cfg = make_cfg(tmp_path, port=port)
+    hdr = {"X-Forwarded-Email": "a@example.com"}
+    with TestClient(create_app(cfg)) as c:
+        assert c.get("/api/hosts/h1/health").status_code == 403
+        assert c.get("/api/hosts/nope/health", headers=hdr).status_code == 404
+        r = c.get("/api/hosts/h1/health", headers=hdr).json()
+        assert r["reachable"] is True and r["latency_ms"] >= 0
+        srv.close()
+        r = c.get("/api/hosts/h1/health", headers=hdr).json()
+        assert r == {"reachable": False, "latency_ms": None}
 
 
 def test_ws_rejects_bad_origin(tmp_path):

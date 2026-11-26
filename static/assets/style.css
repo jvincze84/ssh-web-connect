@@ -169,6 +169,12 @@ body { display: flex; flex-direction: column; }
 .dialog input:focus, .dialog select:focus, .dialog textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .host-details { color: var(--muted); font-size: 12px; min-height: 1em; margin-top: 4px; }
+.host-health { font-size: 12px; color: var(--muted); min-height: 1.2em; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+.host-health::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .5; }
+.host-health:empty { visibility: hidden; }
+.host-health.up::before { background: var(--ok); opacity: 1; }
+.host-health.down { color: var(--danger); }
+.host-health.down::before { background: var(--danger); opacity: 1; }
 .key-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
 .form-error { color: var(--danger); min-height: 1.2em; margin-top: 10px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
