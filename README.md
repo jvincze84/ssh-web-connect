@@ -260,3 +260,4 @@ frontend/       package.json + lock for xterm.js (vendored at image build)
 tests/          pytest suite
 Dockerfile      multi-stage build (node -> python builder -> slim runtime)
 ```
+
