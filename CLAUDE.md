@@ -1,4 +1,9 @@
 # CLAUDE.md
+@PLAN.md
+
+Mielőtt dolgozni kezdesz, olvasd el a PLAN.md-t. Egy feladat végén frissítsd:
+pipáld ki a kész lépéseket, add hozzá az új teendőket és a döntéseket.
+Ha új tudás kerül a projektbe (parancs, gotcha, invariáns), frissítsd a CLAUDE.md-t is.
 
 Guidance for Claude Code when working in this repository.
 
