@@ -111,12 +111,16 @@ All settings live in one YAML file (`SSH_MANAGER_CONFIG`, default
 | `groups[].hosts[].idle_timeout` | | Per-host override of `server.idle_timeout` (seconds, 0 = never) |
 | `ui.scrollback` | `10000` | Default scrollback lines per terminal (100 to `scrollback_max`) |
 | `ui.scrollback_max` | `100000` | Upper bound for the per-browser override (max 1000000) |
+| `ui.stats_enabled` | `true` | Show the status bar (CPU / memory / disk `/` usage of the remote host) |
+| `ui.stats_interval` | `60` | Default status bar update interval in seconds (10 to 3600) |
 | `groups[].hosts[].insecure_skip_host_key_check` | `false` | **Dangerous**: disables host key verification |
 
 Scrollback and the terminal font size (8 to 32 px, default 14) can be changed per
 browser with the gear icon in the top bar. Both are stored in `localStorage` (the
 scrollback is clamped to `ui.scrollback_max`) and apply to open terminals immediately.
-The font size has no config key. Large scrollback multiplied by many
+The status bar update interval (minimum 10 s) is also a per-browser setting. The
+status bar needs a Linux host (`/proc`, `df`) and permission to run a command over SSH;
+otherwise it shows "n/a". The font size has no config key. Large scrollback multiplied by many
 tabs uses a lot of browser memory: roughly 100k lines x 10 tabs can reach hundreds of MB.
 
 Hosts are organised **by group**: the group is the top level and its hosts are listed

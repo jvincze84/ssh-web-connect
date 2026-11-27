@@ -39,6 +39,11 @@ ui:
   # Scrollback lines per terminal, and the upper bound for the per-browser override.
   scrollback: 10000
   scrollback_max: 100000
+  # Status bar under each terminal: remote CPU / memory / disk "/" usage (Linux hosts).
+  # It runs a fixed read-only command on the host every stats_interval seconds.
+  # Users can change the interval in the settings dialog (minimum 10 s).
+  stats_enabled: true
+  stats_interval: 60
 
 audit:
   # JSON-lines audit log; null disables the file sink.

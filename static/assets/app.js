@@ -16,13 +16,16 @@
     activeId: null,
     nextId: 1,
     rememberedKey: null, // { key, passphrase } kept only in memory
-    ui: { scrollback: 10000, scrollback_max: 100000 }, // server defaults (/api/hosts)
+    ui: { scrollback: 10000, scrollback_max: 100000, stats_enabled: true, stats_interval: 60, stats_min_interval: 10 }, // server defaults (/api/hosts)
     userScrollback: null, // per-browser override (non-secret, kept in localStorage)
+    userStatsInterval: null, // per-browser override, seconds
     userFontSize: null,   // per-browser override (non-secret, kept in localStorage)
   };
 
   const SCROLLBACK_KEY = "ssh-manager.scrollback";
   const FONTSIZE_KEY = "ssh-manager.fontsize";
+  const STATS_KEY = "ssh-manager.stats-interval";
+  const MAX_STATS_INTERVAL = 3600;
   const DEFAULT_FONT_SIZE = 14, MIN_FONT_SIZE = 8, MAX_FONT_SIZE = 32;
   // Errors that retrying with the same key/input cannot fix: ask for the key again.
   const KEY_ERRORS = new Set(["key_invalid", "key_passphrase_required", "key_passphrase_wrong", "auth_rejected"]);
@@ -33,6 +36,17 @@
 
   function effectiveFontSize() {
     return state.userFontSize || DEFAULT_FONT_SIZE;
+  }
+
+  function effectiveStatsInterval() {
+    return state.userStatsInterval || state.ui.stats_interval;
+  }
+
+  function loadUserStatsInterval() {
+    try {
+      const n = parseInt(localStorage.getItem(STATS_KEY), 10);
+      if (n >= state.ui.stats_min_interval && n <= MAX_STATS_INTERVAL) state.userStatsInterval = n;
+    } catch (e) { /* storage unavailable */ }
   }
 
   function loadUserFontSize() {
@@ -171,7 +185,11 @@
           if (w) w.opener = null;
         }));
       }
-      this.term.open(this.container);
+      this.termHost = el("div", { class: "term-host" });
+      this.container.append(this.termHost);
+      this.term.open(this.termHost);
+      this.statusbar = this.buildStatusbar();
+      this.container.append(this.statusbar);
 
       // Auto-copy selected text.
       let selTimer = null;
@@ -202,7 +220,7 @@
       this.term.onResize(({ cols, rows }) => this.send({ type: "resize", cols, rows }));
 
       this.resizeObserver = new ResizeObserver(() => this.doFit());
-      this.resizeObserver.observe(this.container);
+      this.resizeObserver.observe(this.termHost);
 
       this.lastError = null; // { code, message } of the last failed/closed connection
       this.closeReason = null;
@@ -212,6 +230,46 @@
 
       this.tabEl = this.buildTab();
       $("tabs").append(this.tabEl);
+    }
+
+    buildStatusbar() {
+      this.statEls = {};
+      const bar = el("div", { class: "statusbar", hidden: "" });
+      for (const [key, label] of [["cpu", "CPU"], ["mem", "Mem"], ["disk", "Disk /"]]) {
+        const fill = el("div", { class: "stat-fill" });
+        const val = el("span", { class: "stat-val", text: "--" });
+        bar.append(el("div", { class: "stat", title: `${label} usage` },
+          el("span", { text: label }), el("div", { class: "stat-bar" }, fill), val));
+        this.statEls[key] = { fill, val };
+      }
+      return bar;
+    }
+
+    showStats(msg) {
+      this.statusbar.classList.remove("stale");
+      for (const [key, { fill, val }] of Object.entries(this.statEls)) {
+        const n = msg.error ? NaN : Number(msg[key]);
+        const ok = Number.isFinite(n);
+        val.textContent = ok ? `${Math.round(n)}%` : "n/a";
+        fill.style.width = ok ? `${Math.max(0, Math.min(100, n))}%` : "0";
+        fill.className = "stat-fill" + (ok && n >= 90 ? " crit" : ok && n >= 75 ? " warn" : "");
+      }
+    }
+
+    // (Re)start periodic polling; the server enforces the 10 s minimum as well.
+    startStats() {
+      this.stopStats();
+      if (!state.ui.stats_enabled || this.status !== "connected") return;
+      this.statusbar.hidden = false;
+      const poll = () => this.send({ type: "stats" });
+      poll();
+      this.statsTimer = setInterval(poll, effectiveStatsInterval() * 1000);
+      requestAnimationFrame(() => this.doFit());
+    }
+
+    stopStats() {
+      clearInterval(this.statsTimer);
+      this.statsTimer = null;
     }
 
     // Multi-line pastes need confirmation (editable); single lines go straight in.
@@ -290,6 +348,10 @@
       this.dotEl.className = "status-dot status-" + s;
       this.redoEl.hidden = !(s === "closed" || s === "error");
       if (s === "connecting" || s === "connected") this.hideOverlay();
+      if (s !== "connected") {
+        this.stopStats();
+        this.statusbar.classList.add("stale"); // keep the last values, dimmed
+      }
       updateToolbar();
     }
 
@@ -407,11 +469,14 @@
             this.setStatus("connected");
             this.doFit();
             this.send({ type: "resize", cols: this.term.cols, rows: this.term.rows });
+            this.startStats();
             if (state.activeId === this.id) this.term.focus();
           } else if (msg.state === "closed") {
             this.closeReason = msg.reason || null;
             if (this.status !== "error") this.setStatus("closed");
           }
+        } else if (msg.type === "stats") {
+          this.showStats(msg);
         } else if (msg.type === "idle_warning") {
           const n = Number(msg.seconds_left) || 0;
           this.term.writeln(`\r\n\x1b[33m[No activity: this session closes in ${n} s. Press any key to keep it open.]\x1b[0m`);
@@ -437,6 +502,7 @@
 
     destroy() {
       try { if (this.ws) this.ws.close(); } catch (e) { /* ignore */ }
+      this.stopStats();
       this.resizeObserver.disconnect();
       if (this.fitRaf) cancelAnimationFrame(this.fitRaf);
       this.term.dispose();
@@ -651,6 +717,13 @@
     input.max = String(state.ui.scrollback_max);
     input.value = String(effectiveScrollback());
     $("fontsize-input").value = String(effectiveFontSize());
+    const si = $("stats-interval-input");
+    si.min = String(state.ui.stats_min_interval);
+    si.value = String(effectiveStatsInterval());
+    si.disabled = !state.ui.stats_enabled;
+    $("stats-hint").textContent = state.ui.stats_enabled
+      ? `CPU / memory / disk usage of the remote host (${state.ui.stats_min_interval} to ${MAX_STATS_INTERVAL} s; server default ${state.ui.stats_interval}).`
+      : "The status bar is disabled by the server configuration.";
     $("scrollback-hint").textContent =
       `Lines kept per terminal (100 to ${state.ui.scrollback_max}; server default ${state.ui.scrollback}). ` +
       "Large values multiplied by many tabs use a lot of browser memory.";
@@ -666,6 +739,20 @@
       else localStorage.removeItem(SCROLLBACK_KEY);
     } catch (e) { /* storage unavailable */ }
     for (const s of state.tabs.values()) s.term.options.scrollback = effectiveScrollback();
+  }
+
+  function applyStatsInterval(n) {
+    state.userStatsInterval = n;
+    try {
+      if (n) localStorage.setItem(STATS_KEY, String(n));
+      else localStorage.removeItem(STATS_KEY);
+    } catch (e) { /* storage unavailable */ }
+    for (const s of state.tabs.values()) {
+      if (s.statsTimer) {
+        clearInterval(s.statsTimer);
+        s.statsTimer = setInterval(() => s.send({ type: "stats" }), effectiveStatsInterval() * 1000);
+      }
+    }
   }
 
   function applyFontSize(n) {
@@ -692,6 +779,12 @@
       $("settings-error").textContent = `Font size: enter a number between ${MIN_FONT_SIZE} and ${MAX_FONT_SIZE}.`;
       return;
     }
+    const si = parseInt($("stats-interval-input").value, 10);
+    if (state.ui.stats_enabled && (!Number.isFinite(si) || si < state.ui.stats_min_interval || si > MAX_STATS_INTERVAL)) {
+      $("settings-error").textContent = `Status bar interval: enter a number between ${state.ui.stats_min_interval} and ${MAX_STATS_INTERVAL}.`;
+      return;
+    }
+    if (state.ui.stats_enabled) applyStatsInterval(si === state.ui.stats_interval ? null : si);
     applyScrollback(n === state.ui.scrollback ? null : n);
     applyFontSize(f === DEFAULT_FONT_SIZE ? null : f);
     $("settings-dialog").close();
@@ -717,6 +810,7 @@
     $("settings-cancel").addEventListener("click", () => $("settings-dialog").close());
     $("settings-reset").addEventListener("click", () => {
       applyScrollback(null);
+      applyStatsInterval(null);
       applyFontSize(null);
       $("settings-dialog").close();
     });
@@ -764,6 +858,7 @@
       state.hosts = data.hosts || [];
       if (data.ui) state.ui = data.ui;
       loadUserScrollback();
+      loadUserStatsInterval();
       $("current-user").textContent = data.user || "";
     } catch (e) {
       $("empty-state").replaceChildren(el("p", { class: "form-error", text: "Failed to load host list: " + e.message }));

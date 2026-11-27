@@ -22,6 +22,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .audit import audit, setup_audit
 from .config import AppConfig, load_config
 from .ssh_session import ClientContext, SSHBridge
+from .stats import STATS_MIN_INTERVAL
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -218,7 +219,13 @@ def create_app(cfg: Optional[AppConfig] = None) -> FastAPI:
         c: AppConfig = request.app.state.config
         return {
             "user": request.state.user,
-            "ui": {"scrollback": c.ui.scrollback, "scrollback_max": c.ui.scrollback_max},
+            "ui": {
+                "scrollback": c.ui.scrollback,
+                "scrollback_max": c.ui.scrollback_max,
+                "stats_enabled": c.ui.stats_enabled,
+                "stats_interval": c.ui.stats_interval,
+                "stats_min_interval": STATS_MIN_INTERVAL,
+            },
             "hosts": [
                 {
                     "id": h.id,

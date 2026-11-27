@@ -16,6 +16,8 @@ from typing import Literal, Optional
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .stats import STATS_MIN_INTERVAL
+
 DEFAULT_CONFIG_PATH = "/app/config/config.yaml"
 
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
@@ -85,6 +87,10 @@ class UIConfig(_Strict):
     # per-browser override.
     scrollback: int = Field(default=10000, ge=100, le=1_000_000)
     scrollback_max: int = Field(default=100_000, ge=100, le=1_000_000)
+    # Status bar with remote CPU / memory / disk "/" usage. The default polling
+    # interval can be overridden per browser (never below 10 s).
+    stats_enabled: bool = True
+    stats_interval: int = Field(default=60, ge=STATS_MIN_INTERVAL, le=3600)
 
     @model_validator(mode="after")
     def _bounds(self) -> "UIConfig":

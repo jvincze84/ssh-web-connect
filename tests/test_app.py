@@ -160,6 +160,8 @@ def test_idle_and_ui_config_validation():
     with pytest.raises(ValueError):
         AppConfig.model_validate({**base, "ui": {"scrollback": 50}})
     with pytest.raises(ValueError):
+        AppConfig.model_validate({**base, "ui": {"stats_interval": 5}})
+    with pytest.raises(ValueError):
         one_host_cfg(idle_timeout=10)
     cfg = AppConfig.model_validate({"groups": [{"name": "G", "hosts": [
         {"id": "a", "hostname": "x", "users": ["u"], "idle_timeout": 0},
@@ -219,7 +221,10 @@ def test_http_requires_identity_and_sets_headers(tmp_path):
         assert r.status_code == 200
         assert r.json()["hosts"][0]["id"] == "h1"
         assert r.json()["hosts"][0]["group"] == "G"
-        assert r.json()["ui"] == {"scrollback": 10000, "scrollback_max": 100000}
+        assert r.json()["ui"] == {
+            "scrollback": 10000, "scrollback_max": 100000,
+            "stats_enabled": True, "stats_interval": 60, "stats_min_interval": 10,
+        }
         assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
         assert r.headers["x-content-type-options"] == "nosniff"
 
