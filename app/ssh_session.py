@@ -17,6 +17,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 from .audit import audit
 from .config import AppConfig, HostConfig
 from .errors import classify_error
+from .stats import STATS_COMMAND, STATS_MIN_INTERVAL, parse_stats
 from .keys import KeyError_, decode_private_key, key_fingerprint
 
 log = logging.getLogger("ssh_manager.session")
@@ -82,6 +83,8 @@ class SSHBridge:
         self.last_activity = time.monotonic()
         self.idle_timeout = cfg.server.idle_timeout
         self.close_reason = "unknown"
+        self.last_stats = 0.0
+        self.stats_task: Optional[asyncio.Task] = None
 
     # ------------------------------------------------------------------ helpers
     def _audit(self, event: str, **fields: object) -> None:
@@ -264,6 +267,37 @@ class SSHBridge:
                 self.process.change_terminal_size(cols, rows)
             elif mtype == "ping":
                 await _send_json(self.ws, {"type": "pong"})
+            elif mtype == "stats":
+                self._request_stats()
+
+    def _request_stats(self) -> None:
+        """Start one stats collection, unless disabled, running or too frequent."""
+        now = time.monotonic()
+        if (not self.cfg.ui.stats_enabled or self.conn is None
+                or (self.stats_task and not self.stats_task.done())
+                or now - self.last_stats < STATS_MIN_INTERVAL):
+            return
+        self.last_stats = now
+        self.stats_task = asyncio.create_task(self._collect_stats(), name="stats")
+
+    async def _collect_stats(self) -> None:
+        # Runs on its own exec channel; does not count as terminal activity.
+        values = None
+        try:
+            assert self.conn is not None
+            result = await asyncio.wait_for(
+                self.conn.run(STATS_COMMAND, check=False, encoding="utf-8",
+                              errors="replace"),
+                timeout=20,
+            )
+            if result.exit_status == 0:
+                values = parse_stats(str(result.stdout or "")[:4096])
+        except Exception as exc:  # noqa: BLE001 - stats are best effort
+            log.debug("stats failed session=%s: %r", self.ctx.session_id, exc)
+        try:
+            await _send_json(self.ws, {"type": "stats", **(values or {"error": True})})
+        except Exception:  # noqa: BLE001 - socket closed meanwhile
+            pass
 
     async def _idle_watchdog(self) -> None:
         timeout = self.idle_timeout
@@ -312,6 +346,8 @@ class SSHBridge:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _cleanup(self) -> None:
+        if self.stats_task is not None:
+            self.stats_task.cancel()
         exit_status = None
         if self.process is not None:
             exit_status = self.process.exit_status

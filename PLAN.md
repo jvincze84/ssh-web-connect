@@ -204,6 +204,17 @@ groups:
 - **Draggable tabs**: tabs can be reordered with drag & drop (drop marker on the left/right
   half of the target tab). Not persisted across reloads. Not yet verified in a real browser.
 
+## Follow-up: status bar (implemented)
+
+- Bottom status bar per terminal with remote CPU, memory and disk `/` usage as % with a 0-100 bar
+  (green < 75, yellow >= 75, red >= 90).
+- Collected server-side over SSH (`app/stats.py`), client-driven polling via `{"type":"stats"}`.
+- Default interval 60 s (`ui.stats_interval`), user override in the settings dialog (localStorage),
+  minimum 10 s enforced in config validation, server and UI. `ui.stats_enabled: false` turns it off.
+- Decision: CPU is measured by two `/proc/stat` samples 1 s apart; memory uses `MemAvailable`.
+- Open: not verified in a real browser; no E2E test (the in-process asyncssh test server has no exec
+  support for the command), only unit tests for the parser and config bounds.
+
 ## Cross-cutting
 
 - **Protocol additions** (update CLAUDE.md "WebSocket protocol"):

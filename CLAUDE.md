@@ -31,6 +31,8 @@ The UI, logs, code comments and docs are all **in English**.
   subclasses carry a stable `code`.
 - `app/errors.py`: `classify_error(exc, host, known_hosts_path, username)` maps connect
   failures to `(error_code, user_message, detail)`. `detail` is audit-only.
+- `app/stats.py`: fixed `STATS_COMMAND` (run via `conn.run` on a separate exec channel) and
+  `parse_stats()` -> `{cpu, mem, disk}` percentages. `STATS_MIN_INTERVAL = 10` s.
 - `static/`: `index.html`, `assets/app.js` (an IIFE, no build step), `assets/style.css`.
 - `frontend/package.json` + lock: pinned xterm.js packages. The Dockerfile copies
   their UMD bundles to `static/assets/vendor/`. That folder is gitignored and not
@@ -51,11 +53,12 @@ Client → server, JSON text frames:
 - `{"type":"input","data":"..."}`
 - `{"type":"resize","cols","rows"}`
 - `{"type":"ping"}`
+- `{"type":"stats"}`: asks for one status bar sample (server ignores it if disabled, one is running, or the last was < 10 s ago)
 
 Server → client: **binary** frames carry raw terminal output. JSON text frames are
 `status` (`connecting|connected|closed`, `closed` has a `reason`), `error`
 (`{"type":"error","code":"<error_code>","message":"..."}`), `idle_warning`
-(`{"type":"idle_warning","seconds_left":N}`) and `pong`. Never put `error_detail` in a
+(`{"type":"idle_warning","seconds_left":N}`) and `pong`, and `stats` (`{"type":"stats","cpu":N,"mem":N,"disk":N}` in %, or `{"type":"stats","error":true}`). Never put `error_detail` in a
 browser message.
 
 ## Front end behaviour notes
@@ -65,6 +68,10 @@ browser message.
   `ResizeObserver`: in fullscreen it caused jitter and resize-message floods.
 - Tab reordering uses HTML5 drag & drop on `.tab` elements; `syncTabOrder()` keeps
   `state.tabs` (a Map) in the same order as the DOM. Order is not persisted.
+- Status bar (`.statusbar` under `.term-host` in each pane): the client polls with `{"type":"stats"}`
+  every `effectiveStatsInterval()` seconds (server default `ui.stats_interval` 60, per-browser
+  override in localStorage, min 10). The terminal lives in `.term-host`; the `ResizeObserver` watches
+  that element, not the pane. Stats traffic must not count as idle activity.
 - Double-clicking a host in the connect dialog submits the form when the key is filled
   (`requestSubmit()`, so `submitDialog` validation still applies).
 
@@ -104,6 +111,8 @@ docker compose up -d --build
 
 ## Gotchas
 
+- The stats command is a fixed string wrapped in `sh -c '...'` (login shell independent); never
+  interpolate client data into it. Linux only (`/proc`, `df`); elsewhere the bar shows "n/a".
 - asyncssh calls `getpass.getuser()`. `ssh_session.py` sets `USER` as a fallback
   so arbitrary container UIDs work.
 - Encrypted OpenSSH-format keys need `bcrypt` (`asyncssh[bcrypt]`).
