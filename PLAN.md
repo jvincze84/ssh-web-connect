@@ -215,6 +215,17 @@ groups:
 - Open: not verified in a real browser; no E2E test (the in-process asyncssh test server has no exec
   support for the command), only unit tests for the parser and config bounds.
 
+## Follow-up: "Close others" button (implemented)
+
+- Top bar button `✕ Close others` between Duplicate and Settings: closes every tab except the
+  active one. Disabled when there is no active tab or only one tab.
+- One confirmation for the batch (only when at least one of them is connected or connecting),
+  instead of one `confirm()` per tab.
+- Graceful close: `Session.destroy()` now closes the WebSocket with code 1000; the server treats
+  it as `client_closed`, closes the SSH process and connection (`wait_closed`, 5 s) and writes
+  `ssh.disconnected`. No protocol or backend change.
+- Open: not verified in a real browser.
+
 ## Cross-cutting
 
 - **Protocol additions** (update CLAUDE.md "WebSocket protocol"):

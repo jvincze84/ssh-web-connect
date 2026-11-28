@@ -72,6 +72,9 @@ browser message.
   every `effectiveStatsInterval()` seconds (server default `ui.stats_interval` 60, per-browser
   override in localStorage, min 10). The terminal lives in `.term-host`; the `ResizeObserver` watches
   that element, not the pane. Stats traffic must not count as idle activity.
+- "Close others" (`closeOthers()`) closes all tabs except the active one with a single confirm.
+  Every tab close goes through `Session.destroy()`, which closes the WebSocket with code 1000 so the
+  server shuts the SSH connection down cleanly (`client_closed` in the audit log).
 - Double-clicking a host in the connect dialog submits the form when the key is filled
   (`requestSubmit()`, so `submitDialog` validation still applies).
 

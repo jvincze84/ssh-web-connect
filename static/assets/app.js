@@ -501,7 +501,9 @@
     }
 
     destroy() {
-      try { if (this.ws) this.ws.close(); } catch (e) { /* ignore */ }
+      // Normal closure (1000): the server then closes the SSH channel and connection
+      // cleanly and audits ssh.disconnected with reason client_closed.
+      try { if (this.ws) this.ws.close(1000, "client closed"); } catch (e) { /* ignore */ }
       this.stopStats();
       this.resizeObserver.disconnect();
       if (this.fitRaf) cancelAnimationFrame(this.fitRaf);
@@ -532,6 +534,7 @@
 
   function updateToolbar() {
     $("dup-tab").disabled = !state.tabs.has(state.activeId);
+    $("close-others").disabled = !state.tabs.has(state.activeId) || state.tabs.size < 2;
   }
 
   // Create a session (or reuse `target` for a reconnect) and connect it.
@@ -585,6 +588,20 @@
     } else {
       $("empty-state").hidden = state.tabs.size > 0;
     }
+    updateToolbar();
+  }
+
+  // Close every tab except the active one, with a single confirmation.
+  function closeOthers() {
+    const others = [...state.tabs.values()].filter((s) => s.id !== state.activeId);
+    if (!others.length) return;
+    const live = others.filter((s) => s.status === "connected" || s.status === "connecting").length;
+    if (live && !confirm(`Close ${others.length} other tab(s)? ${live} active session(s) will be disconnected.`)) return;
+    for (const s of others) {
+      s.destroy();
+      state.tabs.delete(s.id);
+    }
+    $("empty-state").hidden = state.tabs.size > 0;
     updateToolbar();
   }
 
@@ -805,6 +822,7 @@
     $("new-tab").addEventListener("click", openDialog);
     $("empty-new").addEventListener("click", openDialog);
     $("dup-tab").addEventListener("click", duplicateActive);
+    $("close-others").addEventListener("click", closeOthers);
     $("open-settings").addEventListener("click", openSettings);
     $("settings-form").addEventListener("submit", submitSettings);
     $("settings-cancel").addEventListener("click", () => $("settings-dialog").close());
